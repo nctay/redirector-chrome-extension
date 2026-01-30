@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "OIDC Local Dev Redirector",
+  "version": "1.0.0",
+  "description": "Configurable URL redirector for local development with OIDC callbacks",
+  "permissions": ["declarativeNetRequest", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "toggle-redirect": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+9",
+        "mac": "Command+Shift+9"
+      },
+      "description": "Toggle OIDC redirect"
+    }
+  },
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  }
+}

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 400px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+    }
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 16px;
+    }
+    .status {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .status.active {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .status.inactive {
+      background: #ffebee;
+      color: #c62828;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    button.enable {
+      background: #4caf50;
+      color: white;
+    }
+    button.enable:hover {
+      background: #45a049;
+    }
+    button.disable {
+      background: #f44336;
+      color: white;
+    }
+    button.disable:hover {
+      background: #da190b;
+    }
+    .settings {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 15px;
+    }
+    .settings h4 {
+      margin: 0 0 10px 0;
+      font-size: 13px;
+      color: #555;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      box-sizing: border-box;
+      font-family: 'Courier New', monospace;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #2196f3;
+    }
+    .btn-save {
+      background: #2196f3;
+      color: white;
+      padding: 8px 16px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .btn-save:hover {
+      background: #1976d2;
+    }
+    .shortcut {
+      margin-top: 10px;
+      padding: 8px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      font-size: 11px;
+      text-align: center;
+      color: #1565c0;
+    }
+    .key {
+      display: inline-block;
+      background: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid #90caf9;
+      font-family: monospace;
+      font-weight: bold;
+    }
+    .current-mapping {
+      font-size: 11px;
+      color: #666;
+      margin-top: 10px;
+      padding: 8px;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .current-mapping strong {
+      color: #333;
+    }
+    .arrow {
+      color: #2196f3;
+      margin: 4px 0;
+    }
+    .url-preview {
+      font-family: 'Courier New', monospace;
+      word-break: break-all;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .hint {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h3>🔄 OIDC Local Dev Redirector</h3>
+  
+  <div id="status" class="status active">
+    ✓ Redirects enabled
+  </div>
+  
+  <button id="toggle" class="disable">
+    Disable redirects
+  </button>
+  
+  <div class="shortcut">
+    Quick toggle: <span class="key">Ctrl</span> + <span class="key">Shift</span> + <span class="key">9</span>
+  </div>
+
+  <div class="current-mapping" id="currentMapping">
+    <strong>Current redirect:</strong>
+    <div class="url-preview" id="fromUrl">—</div>
+    <div class="arrow">↓</div>
+    <div class="url-preview" id="toUrl">—</div>
+  </div>
+  
+  <div class="settings">
+    <h4>⚙️ Configuration</h4>
+    <div class="form-group">
+      <label for="sourceUrl">From URL (production/staging):</label>
+      <input type="text" id="sourceUrl" placeholder="https://example.com">
+      <div class="hint">Full URL without trailing slash</div>
+    </div>
+    <div class="form-group">
+      <label for="targetUrl">To URL (local dev):</label>
+      <input type="text" id="targetUrl" placeholder="http://localhost:3000">
+      <div class="hint">Your local development URL</div>
+    </div>
+    <button id="saveSettings" class="btn-save">Save Settings</button>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
