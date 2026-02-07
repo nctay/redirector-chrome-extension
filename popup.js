@@ -1,155 +1,295 @@
-// Загружаем настройки при открытии popup
-chrome.storage.local.get(["enabled", "sourceUrl", "targetUrl"], (result) => {
-  const isEnabled = result.enabled !== false;
-  const sourceUrl = result.sourceUrl || "https://bonus.apps.k8s.stg.bonus.inno.tech";
-  const targetUrl = result.targetUrl || "http://localhost:3000";
+const DYNAMIC_RULE_ID = 1;
 
-  // Обновляем UI
-  updateUI(isEnabled);
-  updateMappingDisplay(sourceUrl, targetUrl);
-  
-  // Заполняем форму
-  document.getElementById("sourceUrl").value = sourceUrl;
-  document.getElementById("targetUrl").value = targetUrl;
-});
+const statusDiv = document.getElementById("status");
+const toggleButton = document.getElementById("toggle");
+const presetListDiv = document.getElementById("presetList");
+const addForm = document.getElementById("addForm");
+const showAddFormBtn = document.getElementById("showAddForm");
+const cancelAddBtn = document.getElementById("cancelAdd");
+const savePresetBtn = document.getElementById("savePreset");
+const presetNameInput = document.getElementById("presetName");
+const presetUrlInput = document.getElementById("presetUrl");
+const presetPortInput = document.getElementById("presetPort");
+const mappingDisplay = document.getElementById("mappingDisplay");
+const toast = document.getElementById("toast");
 
-// Обработчик кнопки toggle
-document.getElementById("toggle").addEventListener("click", async () => {
-  chrome.storage.local.get(["enabled"], async (result) => {
-    const currentState = result.enabled !== false;
-    const newState = !currentState;
+// --- Init ---
+loadState();
 
-    await chrome.storage.local.set({ enabled: newState });
-    await applyRedirectRules(newState);
-    updateUI(newState);
-  });
-});
+// --- Toggle redirect on/off ---
+toggleButton.addEventListener("click", async () => {
+  const result = await chrome.storage.local.get(["enabled"]);
+  const currentState = result.enabled !== false;
+  const newState = !currentState;
 
-// Обработчик кнопки сохранения настроек
-document.getElementById("saveSettings").addEventListener("click", async () => {
-  const sourceUrl = document.getElementById("sourceUrl").value.trim();
-  const targetUrl = document.getElementById("targetUrl").value.trim();
+  await chrome.storage.local.set({ enabled: newState });
 
-  // Валидация
-  if (!sourceUrl || !targetUrl) {
-    alert("Please fill in both URLs");
-    return;
+  if (newState) {
+    await applyActivePresetRule();
+  } else {
+    await removeDynamicRule();
   }
 
-  if (!isValidUrl(sourceUrl) || !isValidUrl(targetUrl)) {
-    alert("Please enter valid URLs");
-    return;
+  updateToggleUI(newState);
+});
+
+// --- Show / hide add form ---
+showAddFormBtn.addEventListener("click", () => {
+  addForm.classList.add("visible");
+  showAddFormBtn.style.display = "none";
+  presetNameInput.focus();
+});
+
+cancelAddBtn.addEventListener("click", () => {
+  hideAddForm();
+});
+
+// --- Save new preset ---
+savePresetBtn.addEventListener("click", async () => {
+  const name = presetNameInput.value.trim();
+  const url = presetUrlInput.value.trim();
+  const port = parseInt(presetPortInput.value, 10);
+
+  // Validate
+  let valid = true;
+  if (!name) {
+    presetNameInput.style.borderColor = "#f44336";
+    valid = false;
+  } else {
+    presetNameInput.style.borderColor = "";
+  }
+  if (!url) {
+    presetUrlInput.style.borderColor = "#f44336";
+    valid = false;
+  } else {
+    presetUrlInput.style.borderColor = "";
+  }
+  if (!port || port < 1 || port > 65535) {
+    presetPortInput.style.borderColor = "#f44336";
+    valid = false;
+  } else {
+    presetPortInput.style.borderColor = "";
+  }
+  if (!valid) return;
+
+  const result = await chrome.storage.local.get(["presets", "activePresetId"]);
+  const presets = result.presets || [];
+  const id = Date.now().toString();
+
+  presets.push({ id, name, url, port });
+
+  // Если это первый пресет — сделать его активным
+  const isFirst = presets.length === 1;
+  const updates = { presets };
+  if (isFirst) {
+    updates.activePresetId = id;
   }
 
-  // Сохраняем настройки
-  await chrome.storage.local.set({ 
-    sourceUrl: sourceUrl.replace(/\/$/, ""), // убираем trailing slash
-    targetUrl: targetUrl.replace(/\/$/, "")
-  });
+  await chrome.storage.local.set(updates);
 
-  // Обновляем правила, если редирект включен
-  chrome.storage.local.get(["enabled"], async (result) => {
-    const isEnabled = result.enabled !== false;
-    if (isEnabled) {
-      await applyRedirectRules(true, sourceUrl, targetUrl);
+  // Если стал активным и редиректы включены — применить правило
+  if (isFirst) {
+    const enabledResult = await chrome.storage.local.get(["enabled"]);
+    if (enabledResult.enabled !== false) {
+      await applyActivePresetRule();
     }
-  });
+  }
 
-  // Обновляем отображение
-  updateMappingDisplay(sourceUrl, targetUrl);
-  
-  // Показываем feedback
-  const saveBtn = document.getElementById("saveSettings");
-  const originalText = saveBtn.textContent;
-  saveBtn.textContent = "✓ Saved!";
-  saveBtn.style.background = "#4caf50";
-  setTimeout(() => {
-    saveBtn.textContent = originalText;
-    saveBtn.style.background = "";
-  }, 1500);
+  hideAddForm();
+  showToast("Preset \"" + name + "\" saved");
+  loadState();
 });
 
-// Применяем правила редиректа
-async function applyRedirectRules(enable, customSourceUrl = null, customTargetUrl = null) {
-  // Получаем URL из storage, если не переданы
-  if (!customSourceUrl || !customTargetUrl) {
-    const result = await chrome.storage.local.get(["sourceUrl", "targetUrl"]);
-    customSourceUrl = result.sourceUrl || "https://bonus.apps.k8s.stg.bonus.inno.tech";
-    customTargetUrl = result.targetUrl || "http://localhost:3000";
-  }
+// --- Functions ---
 
-  // Удаляем все существующие динамические правила
-  const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const existingRuleIds = existingRules.map(rule => rule.id);
-  
-  if (existingRuleIds.length > 0) {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: existingRuleIds
-    });
-  }
+async function loadState() {
+  const result = await chrome.storage.local.get(["enabled", "presets", "activePresetId"]);
+  const isEnabled = result.enabled !== false;
+  const presets = result.presets || [];
+  const activeId = result.activePresetId || null;
 
-  if (enable) {
-    // Создаем regex для sourceUrl
-    const escapedSourceUrl = escapeRegex(customSourceUrl);
-    const regexFilter = `^${escapedSourceUrl}(/.*)?$`;
-    
-    // Добавляем новое правило
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      addRules: [
-        {
-          id: 1,
-          priority: 1,
-          action: {
-            type: "redirect",
-            redirect: {
-              regexSubstitution: `${customTargetUrl}\\1`
-            }
-          },
-          condition: {
-            regexFilter: regexFilter,
-            resourceTypes: ["main_frame"]
-          }
-        }
-      ]
-    });
-  }
+  updateToggleUI(isEnabled);
+  renderPresets(presets, activeId);
+  updateMappingDisplay(presets, activeId);
 }
 
-// Экранирование специальных символов для regex
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Валидация URL
-function isValidUrl(string) {
-  try {
-    new URL(string);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-// Обновление UI статуса
-function updateUI(isEnabled) {
-  const statusDiv = document.getElementById("status");
-  const toggleButton = document.getElementById("toggle");
-
+function updateToggleUI(isEnabled) {
   if (isEnabled) {
-    statusDiv.textContent = "✓ Redirects enabled";
+    statusDiv.textContent = "Redirects enabled";
     statusDiv.className = "status active";
     toggleButton.textContent = "Disable redirects";
-    toggleButton.className = "disable";
+    toggleButton.className = "toggle-btn disable";
   } else {
-    statusDiv.textContent = "✗ Redirects disabled";
+    statusDiv.textContent = "Redirects disabled";
     statusDiv.className = "status inactive";
     toggleButton.textContent = "Enable redirects";
-    toggleButton.className = "enable";
+    toggleButton.className = "toggle-btn enable";
   }
 }
 
-// Обновление отображения текущего маппинга
-function updateMappingDisplay(sourceUrl, targetUrl) {
-  document.getElementById("fromUrl").textContent = sourceUrl;
-  document.getElementById("toUrl").textContent = targetUrl;
+function renderPresets(presets, activeId) {
+  presetListDiv.innerHTML = "";
+
+  if (presets.length === 0) {
+    presetListDiv.innerHTML = '<div class="no-presets">No presets yet</div>';
+    return;
+  }
+
+  presets.forEach((preset) => {
+    const item = document.createElement("div");
+    item.className = "preset-item" + (preset.id === activeId ? " active" : "");
+
+    const radio = document.createElement("div");
+    radio.className = "preset-radio";
+
+    const info = document.createElement("div");
+    info.className = "preset-info";
+
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "preset-name";
+    nameDiv.textContent = preset.name;
+
+    const detailDiv = document.createElement("div");
+    detailDiv.className = "preset-detail";
+    detailDiv.textContent = preset.url + " -> :" + preset.port;
+
+    info.appendChild(nameDiv);
+    info.appendChild(detailDiv);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "preset-delete";
+    deleteBtn.textContent = "\u00d7";
+    deleteBtn.title = "Delete preset";
+
+    // Клик по пресету — выбрать его активным
+    const selectArea = document.createElement("div");
+    selectArea.style.display = "contents";
+    selectArea.appendChild(radio);
+    selectArea.appendChild(info);
+    selectArea.addEventListener("click", () => selectPreset(preset.id));
+
+    // Клик по крестику — удалить
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deletePreset(preset.id, preset.name);
+    });
+
+    item.appendChild(selectArea);
+    item.appendChild(deleteBtn);
+    presetListDiv.appendChild(item);
+  });
+}
+
+async function selectPreset(id) {
+  await chrome.storage.local.set({ activePresetId: id });
+
+  // Если редиректы включены — применить новое правило
+  const result = await chrome.storage.local.get(["enabled"]);
+  if (result.enabled !== false) {
+    await applyActivePresetRule();
+  }
+
+  loadState();
+}
+
+async function deletePreset(id, name) {
+  const result = await chrome.storage.local.get(["presets", "activePresetId", "enabled"]);
+  let presets = result.presets || [];
+  const wasActive = result.activePresetId === id;
+
+  presets = presets.filter((p) => p.id !== id);
+
+  const updates = { presets };
+
+  if (wasActive) {
+    // Переключиться на первый оставшийся или очистить
+    if (presets.length > 0) {
+      updates.activePresetId = presets[0].id;
+    } else {
+      updates.activePresetId = null;
+    }
+  }
+
+  await chrome.storage.local.set(updates);
+
+  // Обновить правило если нужно
+  if (wasActive && result.enabled !== false) {
+    if (presets.length > 0) {
+      await applyActivePresetRule();
+    } else {
+      await removeDynamicRule();
+    }
+  }
+
+  showToast("Preset \"" + name + "\" deleted");
+  loadState();
+}
+
+function updateMappingDisplay(presets, activeId) {
+  const active = presets.find((p) => p.id === activeId);
+  if (active) {
+    mappingDisplay.textContent = active.url + "\n-> http://localhost:" + active.port;
+  } else {
+    mappingDisplay.textContent = "No preset selected";
+  }
+}
+
+async function applyActivePresetRule() {
+  const result = await chrome.storage.local.get(["presets", "activePresetId"]);
+  const presets = result.presets || [];
+  const active = presets.find((p) => p.id === result.activePresetId);
+
+  if (!active) {
+    await removeDynamicRule();
+    return;
+  }
+
+  const hostname = active.url.replace(/^https?:\/\//, "");
+  const escapedHostname = hostname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const rule = {
+    id: DYNAMIC_RULE_ID,
+    priority: 1,
+    action: {
+      type: "redirect",
+      redirect: {
+        regexSubstitution: "http://localhost:" + active.port + "\\1",
+      },
+    },
+    condition: {
+      regexFilter: "^https?://" + escapedHostname + "(/.*)?" + "$",
+      resourceTypes: ["main_frame"],
+    },
+  };
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [DYNAMIC_RULE_ID],
+    addRules: [rule],
+  });
+}
+
+async function removeDynamicRule() {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [DYNAMIC_RULE_ID],
+    addRules: [],
+  });
+}
+
+function hideAddForm() {
+  addForm.classList.remove("visible");
+  showAddFormBtn.style.display = "";
+  presetNameInput.value = "";
+  presetUrlInput.value = "";
+  presetPortInput.value = "";
+  presetNameInput.style.borderColor = "";
+  presetUrlInput.style.borderColor = "";
+  presetPortInput.style.borderColor = "";
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.style.display = "block";
+  setTimeout(() => {
+    toast.style.display = "none";
+  }, 2000);
 }

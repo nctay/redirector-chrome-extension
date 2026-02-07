@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <style>
     body {
-      width: 400px;
+      width: 380px;
       padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       margin: 0;
@@ -30,14 +30,18 @@
       color: #c62828;
     }
     button {
-      width: 100%;
-      padding: 12px;
+      padding: 10px 12px;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       transition: all 0.2s;
+    }
+    .toggle-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
     }
     button.enable {
       background: #4caf50;
@@ -53,52 +57,187 @@
     button.disable:hover {
       background: #da190b;
     }
-    .settings {
-      background: #f5f5f5;
-      padding: 15px;
-      border-radius: 6px;
+
+    /* Presets */
+    .presets-section {
       margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
     }
-    .settings h4 {
-      margin: 0 0 10px 0;
+    .presets-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .presets-header span {
       font-size: 13px;
-      color: #555;
+      font-weight: 600;
+      color: #333;
     }
-    .form-group {
-      margin-bottom: 12px;
+    .preset-list {
+      max-height: 200px;
+      overflow-y: auto;
     }
-    label {
-      display: block;
+    .preset-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      gap: 8px;
+    }
+    .preset-item:hover {
+      border-color: #90caf9;
+      background: #f8f9ff;
+    }
+    .preset-item.active {
+      border-color: #4caf50;
+      background: #e8f5e9;
+    }
+    .preset-item .preset-radio {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #bbb;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .preset-item.active .preset-radio {
+      border-color: #4caf50;
+    }
+    .preset-item.active .preset-radio::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4caf50;
+    }
+    .preset-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .preset-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .preset-detail {
+      font-size: 10px;
+      color: #888;
+      font-family: 'Courier New', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .preset-delete {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: #bbb;
+      font-size: 16px;
+      line-height: 22px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .preset-delete:hover {
+      background: #ffebee;
+      color: #f44336;
+    }
+    .no-presets {
+      text-align: center;
+      color: #aaa;
       font-size: 12px;
+      padding: 15px 0;
+    }
+
+    /* Add preset form */
+    .add-preset-btn {
+      background: #1976d2;
+      color: white;
+      font-size: 12px;
+      padding: 5px 10px;
+    }
+    .add-preset-btn:hover {
+      background: #1565c0;
+    }
+    .add-form {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+    .add-form.visible {
+      display: block;
+    }
+    .add-form label {
+      display: block;
+      font-size: 11px;
       color: #666;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       font-weight: 500;
     }
-    input[type="text"] {
+    .add-form input {
       width: 100%;
-      padding: 8px;
+      padding: 7px 8px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 12px;
       box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    .add-form input:focus {
+      outline: none;
+      border-color: #1976d2;
+    }
+    .add-form input.mono {
       font-family: 'Courier New', monospace;
     }
-    input[type="text"]:focus {
-      outline: none;
-      border-color: #2196f3;
+    .field {
+      margin-bottom: 8px;
+    }
+    .form-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .form-actions button {
+      flex: 1;
+      padding: 8px;
+      font-size: 12px;
     }
     .btn-save {
-      background: #2196f3;
+      background: #4caf50;
       color: white;
-      padding: 8px 16px;
-      font-size: 12px;
-      margin-top: 8px;
     }
     .btn-save:hover {
-      background: #1976d2;
+      background: #45a049;
     }
+    .btn-cancel {
+      background: #eee;
+      color: #666;
+    }
+    .btn-cancel:hover {
+      background: #ddd;
+    }
+
     .shortcut {
-      margin-top: 10px;
+      margin-top: 12px;
       padding: 8px;
       background: #e3f2fd;
       border-radius: 4px;
@@ -115,73 +254,92 @@
       font-family: monospace;
       font-weight: bold;
     }
-    .current-mapping {
-      font-size: 11px;
+    .info {
+      font-size: 12px;
       color: #666;
-      margin-top: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+    }
+    .mapping {
+      background: #f5f5f5;
       padding: 8px;
-      background: white;
       border-radius: 4px;
-      border: 1px solid #ddd;
-    }
-    .current-mapping strong {
-      color: #333;
-    }
-    .arrow {
-      color: #2196f3;
-      margin: 4px 0;
-    }
-    .url-preview {
+      font-size: 11px;
+      margin-top: 8px;
       font-family: 'Courier New', monospace;
       word-break: break-all;
-      font-size: 11px;
       line-height: 1.4;
     }
-    .hint {
-      font-size: 11px;
-      color: #999;
-      margin-top: 4px;
-      font-style: italic;
+    .toast {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <h3>🔄 OIDC Local Dev Redirector</h3>
-  
+  <h3>OIDC Local Dev Redirector</h3>
+
   <div id="status" class="status active">
-    ✓ Redirects enabled
+    Redirects enabled
   </div>
-  
-  <button id="toggle" class="disable">
+
+  <button id="toggle" class="toggle-btn disable">
     Disable redirects
   </button>
-  
+
+  <div class="presets-section">
+    <div class="presets-header">
+      <span>Presets</span>
+      <button id="showAddForm" class="add-preset-btn">+ Add</button>
+    </div>
+
+    <div id="presetList" class="preset-list">
+      <div class="no-presets">No presets yet</div>
+    </div>
+
+    <div id="addForm" class="add-form">
+      <div class="field">
+        <label for="presetName">Name:</label>
+        <input type="text" id="presetName" placeholder="e.g. Staging">
+      </div>
+      <div class="field">
+        <label for="presetUrl">Source URL:</label>
+        <input type="text" id="presetUrl" class="mono" placeholder="https://example.com">
+      </div>
+      <div class="field">
+        <label for="presetPort">Localhost port:</label>
+        <input type="number" id="presetPort" class="mono" placeholder="3000" min="1" max="65535">
+      </div>
+      <div class="form-actions">
+        <button id="cancelAdd" class="btn-cancel">Cancel</button>
+        <button id="savePreset" class="btn-save">Save preset</button>
+      </div>
+    </div>
+  </div>
+
   <div class="shortcut">
     Quick toggle: <span class="key">Ctrl</span> + <span class="key">Shift</span> + <span class="key">9</span>
   </div>
 
-  <div class="current-mapping" id="currentMapping">
-    <strong>Current redirect:</strong>
-    <div class="url-preview" id="fromUrl">—</div>
-    <div class="arrow">↓</div>
-    <div class="url-preview" id="toUrl">—</div>
-  </div>
-  
-  <div class="settings">
-    <h4>⚙️ Configuration</h4>
-    <div class="form-group">
-      <label for="sourceUrl">From URL (production/staging):</label>
-      <input type="text" id="sourceUrl" placeholder="https://example.com">
-      <div class="hint">Full URL without trailing slash</div>
+  <div class="info">
+    Active mapping:
+    <div id="mappingDisplay" class="mapping">
+      No preset selected
     </div>
-    <div class="form-group">
-      <label for="targetUrl">To URL (local dev):</label>
-      <input type="text" id="targetUrl" placeholder="http://localhost:3000">
-      <div class="hint">Your local development URL</div>
-    </div>
-    <button id="saveSettings" class="btn-save">Save Settings</button>
   </div>
-  
+
+  <div id="toast" class="toast"></div>
+
   <script src="popup.js"></script>
 </body>
 </html>

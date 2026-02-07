@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ZIP
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          mkdir -p dist
+          cp manifest.json background.js popup.html popup.js icon.png dist/
+          cd dist
+          zip -r "../oidc-redirector-v${{ steps.version.outputs.version }}.zip" .
+          cd ..
+          rm -rf dist
+
+      - name: Create release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: oidc-redirector-v${{ steps.version.outputs.version }}.zip

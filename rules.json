@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "regexSubstitution": "http://localhost:3000\\1"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://bonus\\.apps\\.k8s\\.stg\\.bonus\\.inno\\.tech(/.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]
